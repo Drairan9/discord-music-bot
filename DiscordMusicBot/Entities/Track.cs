@@ -11,4 +11,6 @@ public class Track
     public string ThumbnailUrl { get; set; } = "";
 
     public TimeSpan Duration { get; set; }
+
+    public ulong AddedById { get; set; } = 0;
 }

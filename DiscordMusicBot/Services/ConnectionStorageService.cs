@@ -6,24 +6,24 @@ namespace DiscordMusicBot.Services;
 
 public class ConnectionStorageService: IConnectionStorageService
 {
-    private readonly ConcurrentDictionary<string, Connection> _connections = [];
+    private readonly ConcurrentDictionary<ulong, Connection> _connections = [];
     
-    public void AddConnection(string guildId, Connection connection)
+    public bool AddConnection(ulong guildId, Connection connection)
     {
-        _connections.TryAdd(guildId, connection);
+        return _connections.TryAdd(guildId, connection);
     }
 
-    public void RemoveConnection(string guildId)
+    public bool RemoveConnection(ulong guildId)
     {
-        _connections.TryRemove(guildId, out _);
+        return _connections.TryRemove(guildId, out _);
     }
 
-    public bool CheckIfConnectionExist(string guildId)
+    public bool CheckIfConnectionExist(ulong guildId)
     {
         return _connections.TryGetValue(guildId, out _);
     }
 
-    public Connection? GetConnection(string guildId)
+    public Connection? GetConnection(ulong guildId)
     {
         _connections.TryGetValue(guildId, out var connection);
         return connection;

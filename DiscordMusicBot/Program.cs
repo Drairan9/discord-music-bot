@@ -1,4 +1,5 @@
 ﻿using DiscordMusicBot.Commands;
+using DiscordMusicBot.Services;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.VoiceNext;
@@ -23,6 +24,10 @@ public class Program
         discordClient.UseVoiceNext();
 
         var services = new ServiceCollection()
+            .AddSingleton<ConnectionStorageService>()
+            .AddTransient<FFMpegService>()
+            .AddTransient<ConnectionService>()
+            .AddTransient<SongService>()
             .BuildServiceProvider();
 
         var commandConfig = new CommandsNextConfiguration

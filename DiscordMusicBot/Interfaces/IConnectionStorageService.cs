@@ -4,11 +4,11 @@ namespace DiscordMusicBot.Interfaces;
 
 public interface IConnectionStorageService
 {
-    void AddConnection(string guildId, Connection connection);
+    bool AddConnection(ulong guildId, Connection connection);
 
-    void RemoveConnection(string guildId);
+    bool RemoveConnection(ulong guildId);
 
-    bool CheckIfConnectionExist(string guildId);
+    bool CheckIfConnectionExist(ulong guildId);
 
-    Connection? GetConnection(string guildId);
+    Connection? GetConnection(ulong guildId);
 }
