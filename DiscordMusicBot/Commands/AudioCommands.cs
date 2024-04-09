@@ -1,3 +1,4 @@
+using DiscordMusicBot.Entities;
 using DiscordMusicBot.Services;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
@@ -21,7 +22,7 @@ public class AudioCommands: BaseCommandModule
     }
     
     [Command("play")]
-    public async Task PlayCommand(CommandContext ctx, string url)
+    public async Task PlayCommand(CommandContext ctx, string query)
     {
         var userVoiceChannel = ctx.Member?.VoiceState.Channel;
         if (userVoiceChannel is null)
@@ -49,7 +50,16 @@ public class AudioCommands: BaseCommandModule
             return;
         }
 
-        var track = await _songService.GetSongData(url);
+        Track track;
+        if (query.StartsWith("https://youtube.com/"))
+        {
+            track = await _songService.GetSongData(query);
+        }
+        else
+        {
+            track = await _songService.SearchSong(query);
+        }
+            
         track.AddedBy = ctx.Member;
         connectionInfo.AddTrack(track);
         
