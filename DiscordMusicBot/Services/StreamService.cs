@@ -1,47 +1,62 @@
 using DiscordMusicBot.Entities;
-using DSharpPlus.VoiceNext;
+using DiscordMusicBot.Interfaces;
 
 namespace DiscordMusicBot.Services;
 
-public class StreamService
+public class StreamService: IStreamService
 {
-    private FFMpegService _ffMpegService;
-    private SongService _songService;
+    private readonly FFMpegService _ffMpegService;
+    private readonly SongService _songService;
+    private readonly CommandHelperService _commandHelperService;
 
-    public StreamService(FFMpegService ffMpegService, SongService songService)
+    public StreamService(FFMpegService ffMpegService, SongService songService, CommandHelperService commandHelperService)
     {
         _ffMpegService = ffMpegService;
         _songService = songService;
+        _commandHelperService = commandHelperService;
     }
     
-    public async Task startStream(Connection connection)
+    public async Task StartStream(Connection connection)
     {
-        var currentTrack = connection.ConsumeTrack();
-        if (currentTrack is null || connection.Vnext is null)
-            return;
-        
-        var streamUrl = await _songService.GetYouTubeStreamUrl(currentTrack.Url);
-        var process = _ffMpegService.GetFFmpegProcess(streamUrl);
-        var stream = _ffMpegService.GetStreamFromProcess(process);
-        
-        var transmit = connection.Vnext.GetTransmitSink();
-        
-        try
+        while (true)
         {
-            await stream.CopyToAsync(transmit);
+            var currentTrack = connection.ConsumeTrack();
+            connection.CancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = connection.CancellationTokenSource.Token;
+
+            if (currentTrack is null || connection.Vnext is null)
+                break;
+            
+            
+            var nowPlayingEmbed = _commandHelperService.GetNowPlayingEmbed(currentTrack, connection.CmdCtx);
+            await connection.CmdCtx.RespondAsync(
+                embed: nowPlayingEmbed);
+            
+            connection.IsPlaying = true;
+            var audioStream = await _songService.DownloadSongIntoStream(currentTrack.Url, cancellationToken);
+            var pcmStream = await _ffMpegService.TransformIntoPcm(audioStream, cancellationToken);
+            var transmit = connection.Vnext.GetTransmitSink();
+
+            await transmit.WriteAsync(pcmStream.ToArray(), 0, (int)pcmStream.Length, cancellationToken);
+            await transmit.FlushAsync(cancellationToken);
+            
+            var remainingTracks = connection.GetTracks();
+            if (remainingTracks is null || remainingTracks.Length < 1)
+            {
+                await connection.CmdCtx.RespondAsync(embed: _commandHelperService.GetInfoEmbed("No more tracks in the queue."));
+                connection.Vnext.Disconnect();
+                break;
+            };
         }
-        finally
-        {
-            await transmit.FlushAsync();
-        }
-        var remainingTracks = connection.GetTracks();
-        if (remainingTracks is null || remainingTracks.Length < 1)
-        {
-            connection.Vnext.Disconnect();
-            await stream.DisposeAsync();
-            return;
-        }
-        
-        startStream(connection);
+    }
+
+    public async Task KillStream(Connection connection)
+    {
+        if (connection.CancellationTokenSource is not null)
+            await connection.CancellationTokenSource.CancelAsync();
+
+        connection.Vnext?.GetTransmitSink().FlushAsync();
+        connection.IsPlaying = false;
+        connection.IsPaused = false;
     }
 }

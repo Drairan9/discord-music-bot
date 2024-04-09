@@ -5,7 +5,9 @@ namespace DiscordMusicBot.Interfaces;
 
 public interface ISongService
 {
-    Task<Track> RequestSongData(VideoId videoId);
+    Task<Track> GetSongData(VideoId videoId);
 
-    Task<string> GetYouTubeStreamUrl(string videoId);
+    Task<Track> SearchSong(string query);
+
+    Task<Stream> DownloadSongIntoStream(VideoId videoId, CancellationToken cancellationToken);
 }

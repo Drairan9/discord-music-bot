@@ -7,7 +7,7 @@ namespace DiscordMusicBot.Services;
 
 public class ConnectionService: IConnectionService
 {
-    private ConnectionStorageService _connectionStorageService;
+    private readonly ConnectionStorageService _connectionStorageService;
     
     public ConnectionService(ConnectionStorageService connectionStorageService)
     {

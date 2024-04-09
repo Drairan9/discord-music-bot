@@ -11,11 +11,13 @@ public class AudioCommands: BaseCommandModule
     private readonly ConnectionService _connectionService;
     private readonly SongService _songService;
     private readonly StreamService _streamService;
-    public AudioCommands(ConnectionService connectionService, SongService songService, StreamService streamService)
+    private readonly CommandHelperService _commandHelperService;
+    public AudioCommands(ConnectionService connectionService, SongService songService, StreamService streamService, CommandHelperService commandHelperService)
     {
         _connectionService = connectionService;
         _songService = songService;
         _streamService = streamService;
+        _commandHelperService = commandHelperService;
     }
     
     [Command("play")]
@@ -24,7 +26,7 @@ public class AudioCommands: BaseCommandModule
         var userVoiceChannel = ctx.Member?.VoiceState.Channel;
         if (userVoiceChannel is null)
         {
-            await ctx.RespondAsync("You need to be in a voice channel");
+            await ctx.RespondAsync(embed: _commandHelperService.GetErrorEmbed("You need to be in a voice channel"));
             return;
         }
         
@@ -36,34 +38,57 @@ public class AudioCommands: BaseCommandModule
             _connectionService.RemoveConnection(ctx.Guild.Id);
             discordConnection = await userVoiceChannel.ConnectAsync();
         }
-
+        
         var connectionInfo = _connectionService.GetConnection(ctx.Guild.Id) ??
                              _connectionService.CreateConnection(ctx.Guild.Id, userVoiceChannel.Id, discordConnection, ctx);
+        connectionInfo.Vnext = discordConnection;
         
         if (userVoiceChannel.Id != connectionInfo.VoiceChannelId)
         {
-            await ctx.RespondAsync("You need to be in the same voice channel");
+            await ctx.RespondAsync(embed: _commandHelperService.GetErrorEmbed("You need to be in the same voice channel"));
             return;
         }
 
-        var track = await _songService.RequestSongData(url);
+        var track = await _songService.GetSongData(url);
+        track.AddedBy = ctx.Member;
         connectionInfo.AddTrack(track);
+        
+        var messageEmbed = _commandHelperService.GetSongAddedEmbed(track, ctx);
+        await ctx.RespondAsync(embed: messageEmbed);
+        
 
         if (!connectionInfo.IsPlaying)
-            _streamService.startStream(connectionInfo);
-        
-        await ctx.RespondAsync($"Added track: {track.Title}");
+            await _streamService.StartStream(connectionInfo);
     }
     
     [Command("stop")]
     public async Task StopCommand(CommandContext ctx)
     {
-        await ctx.RespondAsync("stop");
+        var connection = await _commandHelperService.ValidateAndGetUserConnection(ctx);
+        if (connection is null)
+            return;
+        
+        await _streamService.KillStream(connection);
+        _connectionService.RemoveConnection(ctx.Guild.Id);
+        connection.Vnext?.Disconnect();
     }
     
     [Command("skip")]
     public async Task SkipCommand(CommandContext ctx)
     {
-        await ctx.RespondAsync("stop");
+        var connection = await _commandHelperService.ValidateAndGetUserConnection(ctx);
+        if (connection is null)
+            return;
+
+        var remainingTracks = connection.GetTracks();
+        if (remainingTracks is null || remainingTracks.Length < 1)
+        {
+            await ctx.RespondAsync(embed: _commandHelperService.GetInfoEmbed("No more tracks in the queue."));
+            return;
+        }
+
+        await ctx.RespondAsync(embed: _commandHelperService.GetInfoEmbed("Skipping."));
+        await _streamService.KillStream(connection);
+        await _streamService.StartStream(connection);
     }
 }

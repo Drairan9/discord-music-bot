@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using CliWrap;
 using DiscordMusicBot.Interfaces;
 
 namespace DiscordMusicBot.Services;
@@ -12,31 +12,14 @@ public class FFMpegService: IFFMpegService
         _connectionService = connectionService;
     }
 
-    public Process GetFFmpegProcess(string streamUrl)
+    public async Task<MemoryStream> TransformIntoPcm(Stream inputStream, CancellationToken cancellationToken)
     {
-        var ffmpeg = new ProcessStartInfo
-        {
-            FileName = "ffmpeg",
-            Arguments = $"-i {streamUrl} -ac 2 -f s16le -ar 48000 pipe:1",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false
-        };
-        var process = Process.Start(ffmpeg);
-        if (process == null)
-            throw new Exception("Failed to start FFmpeg process.");
-
-        process.StandardError.Close();
-        return process;
-    }
-    
-    public Stream GetStreamFromProcess(Process process)
-    {
-        return process.StandardOutput.BaseStream;
-    }
-
-    public void TerminateProcess(Process process)
-    {
-        process.Kill();
+        var outputStream = new MemoryStream();
+        await Cli.Wrap("ffmpeg")
+            .WithArguments(
+                "-hide_banner -loglevel panic -i pipe:0 -af bass=g=5:f=110:w=0.6 -ac 2 -f s16le -ar 48000 -b:a 64k pipe:1")
+            .WithStandardInputPipe(PipeSource.FromStream(inputStream))
+            .WithStandardOutputPipe(PipeTarget.ToStream(outputStream)).ExecuteAsync(cancellationToken);
+        return outputStream;
     }
 }

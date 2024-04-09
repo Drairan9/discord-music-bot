@@ -1,3 +1,5 @@
+using DSharpPlus.Entities;
+
 namespace DiscordMusicBot.Entities;
 
 public class Track
@@ -12,5 +14,5 @@ public class Track
 
     public TimeSpan Duration { get; set; }
 
-    public ulong AddedById { get; set; } = 0;
+    public DiscordUser? AddedBy { get; set; }
 }

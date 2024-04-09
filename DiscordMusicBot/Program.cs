@@ -28,6 +28,8 @@ public class Program
             .AddTransient<FFMpegService>()
             .AddTransient<ConnectionService>()
             .AddTransient<SongService>()
+            .AddTransient<StreamService>()
+            .AddTransient<CommandHelperService>()
             .BuildServiceProvider();
 
         var commandConfig = new CommandsNextConfiguration
